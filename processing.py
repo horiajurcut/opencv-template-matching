@@ -53,7 +53,7 @@ def template_matching(image, enhanced_image):
     w, h = template.shape[::-1]
 
     result = cv2.matchTemplate(enhanced_image, template, cv2.TM_CCOEFF_NORMED)
-    threshold = 0.8
+    threshold = 0.7
     locations = np.where(result >= threshold)
 
     for pt in zip(*locations[::-1]):
@@ -62,9 +62,11 @@ def template_matching(image, enhanced_image):
 
 def enhance_image(image):
     """Enhance greyscale image to better detect template."""
-    # 0 = threshold, 255 = max_value
-    th, eq = cv2.threshold(image, 130, 140, cv2.THRESH_BINARY);
+    # threshold, max_value
+    th, eq = cv2.threshold(image, 128, 128, cv2.THRESH_BINARY)
+    # th, eq = cv2.threshold(image, 127, 0, cv2.THRESH_BINARY_INV)
 
+    # return image.copy()
     return eq
 
 
@@ -75,6 +77,7 @@ def main():
     }
     with youtube_dl.YoutubeDL(ydl_opts) as ydl:
         ydl.download(['https://www.youtube.com/watch?v=2YvU1BNgdEU'])
+        # ydl.download(['https://www.youtube.com/watch?v=pe2cKw2UK3k'])
 
 
 if __name__ == "__main__":
