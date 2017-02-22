@@ -1,35 +1,37 @@
 from __future__ import unicode_literals
 
+import os
 import cv2
 import youtube_dl
 import numpy as np
 
-template = cv2.imread('training_images/zarya_weapon.png', 0)
+
+IMAGE_TRAINING_SET_WEAPONS_PATH = "training_images/weapons/"
 
 
 def youtube_download_hook(download):
     """Progress hook called while downloading a Youtube video."""
-    if download['status'] == 'finished':
-        process_youtube_video(download['filename'])
+    if download["status"] == "finished":
+        process_youtube_video(download["filename"])
 
 
 def process_youtube_video(filename):
     """Process each frame from local video file."""
+    weapon_templates = generate_weapons_template()
     cap = cv2.VideoCapture(filename)
 
     while cap.isOpened():
         ret, frame = cap.read()
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        tl, tr, bl, br = split_frame(gray)
-        enhanced_br = enhance_image(br)
+        top_left, top_right, bottom_left, bottom_right = split_frame(gray)
 
-        template_matching(br, enhanced_br)
+        for character, weapon_template in weapon_templates.iteritems():
+            template_matching(bottom_right, weapon_template)
 
-        cv2.imshow('Character Normal', br)
-        cv2.imshow('Character Enhanced', enhanced_br)
+        cv2.imshow("Character", bottom_right)
 
-        if cv2.waitKey(0) & 0xFF == ord('q'):
+        if cv2.waitKey(0) & 0xFF == ord("q"):
             break
 
     cap.release()
@@ -48,36 +50,44 @@ def split_frame(frame):
     return top_left, top_right, bottom_left, bottom_right
 
 
-def template_matching(image, enhanced_image):
+def template_matching(image, template):
     """Match template image with current frame."""
-    w, h = template.shape[::-1]
+    template_image, width, height = template
 
-    result = cv2.matchTemplate(enhanced_image, template, cv2.TM_CCOEFF_NORMED)
+    result = cv2.matchTemplate(image, template_image, cv2.TM_CCOEFF_NORMED)
     threshold = 0.7
     locations = np.where(result >= threshold)
 
     for pt in zip(*locations[::-1]):
-        cv2.rectangle(image, pt, (pt[0] + w, pt[1] + h), (0, 0, 255), 2)
+        cv2.rectangle(image, pt, (pt[0] + width, pt[1] + height), (0, 0, 255), 2)
 
 
-def enhance_image(image):
-    """Enhance greyscale image to better detect template."""
-    # threshold, max_value
-    th, eq = cv2.threshold(image, 128, 128, cv2.THRESH_BINARY)
-    # th, eq = cv2.threshold(image, 127, 0, cv2.THRESH_BINARY_INV)
+def generate_weapons_template():
+    """Create OpenCV template images from weapon files."""
+    weapon_files = []
+    weapon_templates = {}
 
-    # return image.copy()
-    return eq
+    for (path, directories, files) in os.walk(IMAGE_TRAINING_SET_WEAPONS_PATH):
+        weapon_files.extend(files)
+
+    for weapon_file in weapon_files:
+        weapon_template = cv2.imread(IMAGE_TRAINING_SET_WEAPONS_PATH + weapon_file, 0)
+        width, height = weapon_template.shape[::-1]
+        weapon_templates[os.path.splitext(weapon_file)[0]] = (weapon_template, width, height)
+
+        cv2.imshow(os.path.splitext(weapon_file)[0], weapon_template)
+
+    return weapon_templates
 
 
 def main():
     ydl_opts = {
-        'format': 'mp4',
-        'progress_hooks': [youtube_download_hook],
+        "format": "mp4",
+        "progress_hooks": [youtube_download_hook],
     }
     with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-        ydl.download(['https://www.youtube.com/watch?v=2YvU1BNgdEU'])
-        # ydl.download(['https://www.youtube.com/watch?v=pe2cKw2UK3k'])
+        ydl.download(["https://www.youtube.com/watch?v=2YvU1BNgdEU"])
+        # ydl.download(["https://www.youtube.com/watch?v=pe2cKw2UK3k"])
 
 
 if __name__ == "__main__":
