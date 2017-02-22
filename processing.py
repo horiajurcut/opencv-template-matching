@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import os
 import cv2
 import youtube_dl
@@ -18,23 +16,50 @@ def youtube_download_hook(download):
 def process_youtube_video(filename):
     """Process each frame from local video file."""
     weapon_templates = generate_weapons_template()
-    cap = cv2.VideoCapture(filename)
+    video_codec = cv2.VideoWriter_fourcc(*"mp4v")
 
-    while cap.isOpened():
-        ret, frame = cap.read()
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    source_video = cv2.VideoCapture(filename)
+    source_width, source_height = (
+        int(source_video.get(cv2.CAP_PROP_FRAME_WIDTH)),
+        int(source_video.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    )
 
-        top_left, top_right, bottom_left, bottom_right = split_frame(gray)
+    processed_video = cv2.VideoWriter()
+    processed_video.open("output.mov", video_codec, 20.0, (int(source_width), int(source_height)), True)
 
-        for character, weapon_template in weapon_templates.iteritems():
-            template_matching(bottom_right, weapon_template)
+    frames = 0
+    while source_video.isOpened():
+        frames += 1
+        ret, frame = source_video.read()
 
-        cv2.imshow("Character", bottom_right)
+        if ret:
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            top_left, top_right, bottom_left, bottom_right = split_frame(gray)
 
-        if cv2.waitKey(0) & 0xFF == ord("q"):
+            for character, weapon_template in weapon_templates.iteritems():
+                x, y = template_matching(bottom_right, weapon_template)
+                weapon, bw, bh = weapon_template
+
+                if x is not None and y is not None:
+                    cv2.rectangle(
+                        frame,
+                        (x + int(source_width / 2), y + int(source_height / 2)),
+                        (x + int(source_width / 2) + bw, y + int(source_height / 2) + bh),
+                        (0, 0, 255), 2
+                    )
+
+            processed_video.write(frame)
+            cv2.imshow("Character", bottom_right)
+
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+        else:
             break
 
-    cap.release()
+    print "Frames: ", frames
+
+    source_video.release()
+    processed_video.release()
     cv2.destroyAllWindows()
 
 
@@ -69,6 +94,9 @@ def template_matching(image, template):
         average_x /= len(matches_found)
         average_y /= len(matches_found)
         cv2.rectangle(image, (average_x, average_y), (average_x + width, average_y + height), (0, 0, 255), 2)
+        return average_x, average_y
+
+    return None, None
 
 
 def generate_weapons_template():
@@ -84,7 +112,7 @@ def generate_weapons_template():
         width, height = weapon_template.shape[::-1]
         weapon_templates[os.path.splitext(weapon_file)[0]] = (weapon_template, width, height)
 
-        cv2.imshow(os.path.splitext(weapon_file)[0], weapon_template)
+        # cv2.imshow(os.path.splitext(weapon_file)[0], weapon_template)
 
     return weapon_templates
 
