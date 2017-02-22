@@ -58,8 +58,17 @@ def template_matching(image, template):
     threshold = 0.7
     locations = np.where(result >= threshold)
 
-    for pt in zip(*locations[::-1]):
-        cv2.rectangle(image, pt, (pt[0] + width, pt[1] + height), (0, 0, 255), 2)
+    average_x = 0
+    average_y = 0
+    matches_found = zip(*locations[::-1])
+    for pt in matches_found:
+        average_x += pt[0]
+        average_y += pt[1]
+
+    if len(matches_found):
+        average_x /= len(matches_found)
+        average_y /= len(matches_found)
+        cv2.rectangle(image, (average_x, average_y), (average_x + width, average_y + height), (0, 0, 255), 2)
 
 
 def generate_weapons_template():
